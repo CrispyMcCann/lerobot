@@ -115,6 +115,10 @@ celerybeat.pid
 
 # Windows
 Thumbs.db
+*:Zone.Identifier
+
+# direnv
+.direnv/
 
 ### Framework & Tool Specific ###
 
