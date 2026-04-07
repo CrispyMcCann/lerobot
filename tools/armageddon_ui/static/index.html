@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARMageddon Control UI</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>ARMageddon Control Interface</h1>
+        <div id="connection-status" class="disconnected">DISCONNECTED</div>
+    </header>
+
+    <main>
+        <!-- Panel 1: Control Interface Simulator -->
+        <section id="control-panel" class="panel">
+            <h2>Electronics Box</h2>
+            <div class="enclosure">
+                <!-- Power Switch -->
+                <div class="control-group power-group">
+                    <label>POWER</label>
+                    <div id="power-switch" class="rocker-switch off" role="button" tabindex="0">
+                        <div class="rocker-track">
+                            <span class="rocker-label-on">I</span>
+                            <span class="rocker-label-off">O</span>
+                            <div class="rocker-thumb"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Row: Mode Toggle + Scroll Buttons -->
+                <div class="control-row top-row">
+                    <div class="control-group">
+                        <label>MODE</label>
+                        <div id="mode-toggle" class="toggle-switch" role="button" tabindex="0">
+                            <div class="toggle-track">
+                                <div class="toggle-thumb"></div>
+                            </div>
+                            <div class="toggle-labels">
+                                <span data-mode="joint">JNT</span>
+                                <span data-mode="cartesian">CRT</span>
+                                <span data-mode="leader">LDR</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-group scroll-group">
+                        <label>AXIS SELECT</label>
+                        <div class="scroll-buttons">
+                            <button id="scroll-up" class="blue-button" title="Next Axis">&#9650;</button>
+                            <button id="scroll-down" class="blue-button" title="Previous Axis">&#9660;</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Row: Knobs -->
+                <div class="control-row bottom-row">
+                    <div class="control-group">
+                        <label>JOG</label>
+                        <div class="knob-wrapper">
+                            <svg class="detent-ring" id="jog-detent-ring" viewBox="0 0 110 110"></svg>
+                            <div id="jog-knob" class="knob continuous-knob" role="slider" tabindex="0">
+                                <div class="knob-body">
+                                    <div class="knob-indicator"></div>
+                                    <div class="knob-grip"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label>SENSITIVITY</label>
+                        <div class="knob-wrapper">
+                            <svg class="detent-ring" id="sens-detent-ring" viewBox="0 0 110 110"></svg>
+                            <div id="sensitivity-knob" class="knob detent-knob" role="slider" tabindex="0">
+                                <div class="knob-body">
+                                    <div class="knob-indicator"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <span id="sensitivity-readout" class="knob-readout">50%</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Panel 2: Status Display -->
+        <section id="status-panel" class="panel">
+            <h2>System Status</h2>
+            <div class="status-display">
+                <!-- Power Status -->
+                <div class="status-row">
+                    <span class="status-label">Power</span>
+                    <div id="status-power" class="status-indicator off">OFF</div>
+                </div>
+
+                <!-- Control Mode -->
+                <div class="status-row mode-row">
+                    <span class="status-label">Control Mode</span>
+                    <div id="status-mode" class="mode-badge joint">JOINT</div>
+                </div>
+
+                <!-- Active Axis -->
+                <div class="status-row">
+                    <span class="status-label">Active Axis</span>
+                    <div id="status-axis" class="axis-display">
+                        <span class="axis-value">J1</span>
+                    </div>
+                </div>
+
+                <!-- Axis Selector Visual -->
+                <div class="status-row">
+                    <span class="status-label">Axis Map</span>
+                    <div id="axis-map" class="axis-map">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Sensitivity -->
+                <div class="status-row">
+                    <span class="status-label">Sensitivity</span>
+                    <div id="sensitivity-pct-display" class="sensitivity-pct-display">
+                        <span class="pct-value">50%</span>
+                    </div>
+                </div>
+
+                <!-- Sensitivity Detent Map -->
+                <div class="status-row">
+                    <span class="status-label">Detent</span>
+                    <div id="sensitivity-detents" class="sensitivity-detents">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Effective Jog Step -->
+                <div class="status-row">
+                    <span class="status-label">Step / Click</span>
+                    <div id="jog-step-display" class="step-size-display">
+                        <span class="step-value">2.50°</span>
+                    </div>
+                </div>
+
+                <!-- Jog Position -->
+                <div class="status-row">
+                    <span class="status-label">Jog Position</span>
+                    <div id="status-jog" class="jog-display">
+                        <span class="jog-value">0.00</span>
+                        <span class="jog-unit">deg</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
