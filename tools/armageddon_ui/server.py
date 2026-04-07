@@ -9,16 +9,14 @@ Opens at http://localhost:8000
 from __future__ import annotations
 
 import argparse
-import asyncio
 import json
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 import uvicorn
-
-from hardware import ControlState, MockInterface, TeensySerialInterface, MODES, SENSITIVITY_DETENTS
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from hardware import MODES, SENSITIVITY_DETENTS, ControlState, MockInterface, TeensySerialInterface
 
 STATIC_DIR = Path(__file__).parent / "static"
 

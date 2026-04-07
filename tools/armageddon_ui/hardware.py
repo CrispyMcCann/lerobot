@@ -7,10 +7,8 @@ connection (for hardware integration).
 
 from __future__ import annotations
 
-import asyncio
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field, asdict
-from typing import Callable
+from dataclasses import asdict, dataclass
 
 JOINT_AXES = ["J1", "J2", "J3", "J4", "J5", "J6"]
 CARTESIAN_AXES = ["X", "Y", "Z", "Roll", "Pitch", "Yaw"]
