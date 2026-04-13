@@ -68,7 +68,13 @@ bool motor_set_velocity(uint8_t index, float velocity);
 
 // Set ODrive controller mode (only valid for ODRIVE type)
 // ctrl_mode: 1=TORQUE, 2=VELOCITY, 3=POSITION
+// Position mode automatically uses TRAP_TRAJ input mode for smooth motion;
+// velocity and torque modes use PASSTHROUGH.
 bool motor_set_mode(uint8_t index, uint32_t ctrl_mode);
+
+// Get the last-commanded controller mode for an ODrive motor.
+// Returns 0 if unknown (never set by us this session) or not an ODrive motor.
+uint8_t motor_get_mode(uint8_t index);
 
 // Set ODrive torque in Nm at motor shaft (only valid for ODRIVE type)
 // Requires controller mode = TORQUE and axis state = CLOSED_LOOP.

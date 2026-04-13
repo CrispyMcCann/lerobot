@@ -17,6 +17,7 @@ Commands (type at the prompt):
     state j1 8        Set ODrive to closed-loop control (8) or idle (1)
     mode j1 torque    Set ODrive controller mode (pos | vel | torque)
     torque j1 0.05    Send torque command in Nm (requires mode torque + state 8)
+    status            Per-drive health dump: state, error, heartbeat, mode, pos
     list              List registered motors
     ping              Health check
     help              Show all commands
@@ -148,10 +149,45 @@ class BenchController:
                     for name, pos in data["motors"].items():
                         print(f"    {name}: {pos:.2f} deg")
                 elif "motors" in data and isinstance(data["motors"], list):
-                    print("  Registered motors:")
-                    for m in data["motors"]:
-                        print(f"    {m['name']:10s}  type={m['type']:10s}  "
-                              f"bus_id={m['bus_id']}  gear={m['gear_ratio']}")
+                    # Split by type — motors vs encoders — since the registry
+                    # lumps them together but they mean very different things.
+                    entries = data["motors"]
+                    motors = [e for e in entries if e["type"] in ("odrive", "sts_servo")]
+                    encoders = [e for e in entries if e["type"] in ("odrive_load_enc", "encoder")]
+
+                    if motors:
+                        print("  Motors:")
+                        for m in motors:
+                            print(f"    {m['name']:10s}  type={m['type']:10s}  "
+                                  f"bus_id={m['bus_id']}  gear={m['gear_ratio']}")
+                    if encoders:
+                        print("  Load encoders (read via ODrive SPI, not separate motors):")
+                        for e in encoders:
+                            # For odrive_load_enc, bus_id = ODrive node hosting the encoder
+                            label = "odrive_node" if e["type"] == "odrive_load_enc" else "cs_pin"
+                            print(f"    {e['name']:10s}  type={e['type']:16s}  "
+                                  f"{label}={e['bus_id']}  gear={e['gear_ratio']}")
+                elif "status" in data and isinstance(data["status"], list):
+                    axis_states = {1: "IDLE", 3: "CAL", 8: "CLOSED_LOOP"}
+                    print("  Per-drive status:")
+                    print(f"    {'motor':6s} {'node':4s} {'online':7s} "
+                          f"{'state':12s} {'error':10s} {'hb_ms':6s} "
+                          f"{'mode':9s} {'pos_deg':>10s}")
+                    for s in data["status"]:
+                        state_name = axis_states.get(
+                            s.get("axis_state", 0), str(s.get("axis_state", 0))
+                        )
+                        err = s.get("axis_error", 0)
+                        err_str = f"0x{err:08X}" if err else "0"
+                        hb = s.get("hb_age_ms", -1)
+                        hb_str = "—" if hb < 0 else str(hb)
+                        print(f"    {s.get('name',''):6s} "
+                              f"{str(s.get('node','')):4s} "
+                              f"{'yes' if s.get('online') else 'NO':7s} "
+                              f"{state_name:12s} {err_str:10s} "
+                              f"{hb_str:6s} "
+                              f"{s.get('ctrl_mode','unknown'):9s} "
+                              f"{s.get('position', 0.0):>10.2f}")
                 elif "torque" in data:
                     motor = data.get("motor", "?")
                     print(f"  {motor}: torque={data['torque']:.4f} Nm")

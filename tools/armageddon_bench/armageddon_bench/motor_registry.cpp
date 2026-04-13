@@ -4,6 +4,12 @@
 #include "sts_servo.h"
 #include <string.h>
 
+// Locally-tracked controller mode per ODrive node. 0 = unknown (never set by us
+// this session), otherwise matches ODRIVE_CTRL_POSITION / VELOCITY / TORQUE.
+// Used by the serial handlers to reject mismatched setpoint commands with a
+// clear error instead of the ODrive silently ignoring them.
+static uint8_t g_odrive_ctrl_mode[ODRIVE_MAX_NODES] = {0};
+
 int motor_find(const char* name) {
     for (uint8_t i = 0; i < NUM_MOTORS; i++) {
         if (strcmp(MOTOR_REGISTRY[i].name, name) == 0) {
@@ -147,8 +153,27 @@ bool motor_set_mode(uint8_t index, uint32_t ctrl_mode) {
     const MotorDef& m = MOTOR_REGISTRY[index];
     if (m.type != ODRIVE) return false;
 
-    odrive_set_controller_mode(m.bus_id, ctrl_mode, ODRIVE_INPUT_PASSTHROUGH);
+    // Use trapezoidal trajectory for position mode so moves respect the
+    // ODrive's trap_traj vel_limit / accel_limit instead of snapping
+    // instantly. Velocity and torque modes stay on passthrough.
+    uint32_t input_mode = (ctrl_mode == ODRIVE_CTRL_POSITION)
+        ? ODRIVE_INPUT_TRAP_TRAJ
+        : ODRIVE_INPUT_PASSTHROUGH;
+
+    odrive_set_controller_mode(m.bus_id, ctrl_mode, input_mode);
+
+    // Track locally so serial handlers can validate setpoint commands.
+    if (m.bus_id < ODRIVE_MAX_NODES) {
+        g_odrive_ctrl_mode[m.bus_id] = (uint8_t)ctrl_mode;
+    }
     return true;
+}
+
+uint8_t motor_get_mode(uint8_t index) {
+    if (index >= NUM_MOTORS) return 0;
+    const MotorDef& m = MOTOR_REGISTRY[index];
+    if (m.type != ODRIVE || m.bus_id >= ODRIVE_MAX_NODES) return 0;
+    return g_odrive_ctrl_mode[m.bus_id];
 }
 
 bool motor_set_torque(uint8_t index, float torque_nm) {

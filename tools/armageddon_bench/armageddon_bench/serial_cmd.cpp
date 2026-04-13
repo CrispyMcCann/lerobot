@@ -13,6 +13,7 @@ static void handle_move(char* args);
 static void handle_vel(char* args);
 static void handle_torque(char* args);
 static void handle_mode(char* args);
+static void handle_status();
 static void handle_read(char* args);
 static void handle_readall();
 static void handle_state(char* args);
@@ -56,6 +57,8 @@ void serial_cmd_process() {
                 handle_torque(args);
             } else if (strcmp(cmd, "MODE") == 0) {
                 handle_mode(args);
+            } else if (strcmp(cmd, "STATUS") == 0) {
+                handle_status();
             } else if (strcmp(cmd, "READ") == 0) {
                 handle_read(args);
             } else if (strcmp(cmd, "READALL") == 0) {
@@ -153,6 +156,32 @@ void serial_respond_list() {
 
 // ---- Command Handlers ----
 
+// Return true if the motor's tracked controller mode matches `expected`, or if
+// the mode is unknown (0) — meaning we haven't set it this session, so we let
+// the command through and trust the user. On mismatch, prints a clear error
+// message and returns false so the caller can bail.
+// Only meaningful for ODRIVE motors; non-ODrive motors always pass.
+static bool check_mode(uint8_t idx, uint32_t expected, const char* mode_name) {
+    const MotorDef& m = motor_get(idx);
+    if (m.type != ODRIVE) return true;
+
+    uint8_t actual = motor_get_mode(idx);
+    if (actual == 0) return true;  // unknown — allow
+    if (actual == expected) return true;
+
+    const char* actual_name =
+        (actual == ODRIVE_CTRL_POSITION) ? "position" :
+        (actual == ODRIVE_CTRL_VELOCITY) ? "velocity" :
+        (actual == ODRIVE_CTRL_TORQUE)   ? "torque"   : "unknown";
+
+    char err[128];
+    snprintf(err, sizeof(err),
+             "motor %s is in %s mode, need %s — run 'mode %s %s' first",
+             m.name, actual_name, mode_name, m.name, mode_name);
+    serial_respond_error(err);
+    return false;
+}
+
 static void handle_move(char* args) {
     if (!args) {
         serial_respond_error("usage: MOVE <motor> <position>");
@@ -176,6 +205,8 @@ static void handle_move(char* args) {
     }
 
     float position = atof(pos_str);
+
+    if (!check_mode(idx, ODRIVE_CTRL_POSITION, "pos")) return;
 
     if (!motor_move(idx, position)) {
         serial_respond_error("cannot move this motor type");
@@ -298,6 +329,8 @@ static void handle_vel(char* args) {
 
     float velocity = atof(vel_str);
 
+    if (!check_mode(idx, ODRIVE_CTRL_VELOCITY, "vel")) return;
+
     if (!motor_set_velocity(idx, velocity)) {
         serial_respond_error("VEL only works for ODrive motors");
         return;
@@ -333,6 +366,8 @@ static void handle_torque(char* args) {
     }
 
     float torque_nm = atof(tq_str);
+
+    if (!check_mode(idx, ODRIVE_CTRL_TORQUE, "torque")) return;
 
     if (!motor_set_torque(idx, torque_nm)) {
         serial_respond_error("TORQUE only works for ODrive motors");
@@ -446,13 +481,59 @@ static void handle_list() {
     serial_respond_list();
 }
 
+static void handle_status() {
+    // Pump the CAN FIFO so heartbeat cache is fresh.
+    odrive_process_rx();
+
+    uint32_t now = millis();
+    Serial.print("{\"ok\":true,\"status\":[");
+    bool first = true;
+    for (uint8_t i = 0; i < NUM_MOTORS; i++) {
+        const MotorDef& m = motor_get(i);
+        if (m.type != ODRIVE) continue;
+
+        const ODriveState& st = odrive_get_state(m.bus_id);
+        uint32_t age = (st.last_heartbeat_ms == 0)
+                       ? 0xFFFFFFFF
+                       : (now - st.last_heartbeat_ms);
+        bool online = odrive_is_online(m.bus_id);
+        uint8_t ctrl = motor_get_mode(i);
+        const char* ctrl_name =
+            (ctrl == ODRIVE_CTRL_POSITION) ? "position" :
+            (ctrl == ODRIVE_CTRL_VELOCITY) ? "velocity" :
+            (ctrl == ODRIVE_CTRL_TORQUE)   ? "torque"   : "unknown";
+
+        if (!first) Serial.print(",");
+        first = false;
+        Serial.print("{\"name\":\"");
+        Serial.print(m.name);
+        Serial.print("\",\"node\":");
+        Serial.print(m.bus_id);
+        Serial.print(",\"online\":");
+        Serial.print(online ? "true" : "false");
+        Serial.print(",\"axis_state\":");
+        Serial.print(st.axis_state);
+        Serial.print(",\"axis_error\":");
+        Serial.print(st.axis_error);
+        Serial.print(",\"hb_age_ms\":");
+        if (age == 0xFFFFFFFF) Serial.print(-1);
+        else Serial.print(age);
+        Serial.print(",\"ctrl_mode\":\"");
+        Serial.print(ctrl_name);
+        Serial.print("\",\"position\":");
+        Serial.print(turns_to_deg(st.pos_estimate) / m.gear_ratio, 2);
+        Serial.print("}");
+    }
+    Serial.println("]}");
+}
+
 static void handle_ping() {
     Serial.println("{\"ok\":true,\"msg\":\"pong\"}");
 }
 
 static void handle_help() {
     // Must be single-line JSON so the Python host can parse it
-    Serial.println("{\"ok\":true,\"commands\":[\"MOVE <motor> <degrees>\",\"VEL <motor> <turns/s>\",\"TORQUE <motor> <nm>\",\"MODE <motor> <pos|vel|torque>\",\"READ <motor>\",\"READALL\",\"STATE <motor> <n> (1=IDLE,8=CLOSED_LOOP)\",\"STOP\",\"CLEAR <motor>\",\"LIST\",\"SCAN <start> <end>\",\"PING\",\"HELP\"]}");
+    Serial.println("{\"ok\":true,\"commands\":[\"MOVE <motor> <degrees>\",\"VEL <motor> <turns/s>\",\"TORQUE <motor> <nm>\",\"MODE <motor> <pos|vel|torque>\",\"STATUS\",\"READ <motor>\",\"READALL\",\"STATE <motor> <n> (1=IDLE,8=CLOSED_LOOP)\",\"STOP\",\"CLEAR <motor>\",\"LIST\",\"SCAN <start> <end>\",\"PING\",\"HELP\"]}");
 }
 
 static void handle_scan(char* args) {
